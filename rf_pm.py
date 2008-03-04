@@ -14,18 +14,25 @@
 #
 # Author Alun Morgan
 
+DEBUG = True
+
 if __name__ == "__main__":
-    from pkg_resources import require as Require
-    Require('cothread')
+    if DEBUG:
+        import sys
+        sys.path.append('/home/mga83/epics/cothread/build/lib.linux-i686-2.4')
+    else:
+        from pkg_resources import require as Require
+        Require('cothread')
+
+# Sets the max waveform size for EPICS.  This needs to be set *before* we
+# load the cothread library so that CA pays attention to it!
+import os, datetime, time
+os.environ["EPICS_CA_MAX_ARRAY_BYTES"] = "3000000"
 
 from cothread import *
 from cothread.catools import *
 from numpy import *
 from scipy.io import savemat
-
-# sets the max waveform size for EPICS
-import os, datetime, time
-os.environ["EPICS_CA_MAX_ARRAY_BYTES"] = "3000000"
 
 PMDIR = "/tmp"
 FNAME = "rf_postmortem_"
@@ -34,27 +41,27 @@ FNAME = "rf_postmortem_"
 class saver:
 
     # object constructor
-    def __init__(self, pv_list):
+    def __init__(self, pv_list, wf_len):
         self.pv_list = pv_list
         self.pv_count = len(pv_list)
         self.full_n = []
-        self.results = zeros(self.pv_count, dtype = float)
+        self.results = zeros((self.pv_count, wf_len), dtype = float)
         # lookup index name from channel name
-        self.stamps = ['T' for sb in range(self.pv_count)]
+        self.stamps = zeros(self.pv_count)
+        self.seen = zeros(self.pv_count, dtype = bool)
         #connect pvs
+        print 'saver', self.pv_list
         camonitor(self.pv_list, self.update_array_entry, format = FORMAT_TIME)
             
     def update_array_entry(self, new_value, index):
-
-        self.results[index] = new_value
-       
-        # real timestamp from channel
-        dn = str(new_value.timestamp)
-        # time stamp accurate to 10us
-        stamp = dn[0:10]+ 'T' + dn[11:13] + dn[14:16] + \
-            dn[17:19] + '_' + dn[20:22]
-        self.stamps[index] = stamp
+        if self.seen[index]:
+            print 'Hmm: already seen this?'
         
+        self.results[index] = new_value
+        # Record the incoming data.
+        stamp = new_value.timestamp
+        self.stamps[index] = stamp
+        self.seen[index] = True
               
         # got one more sample
         self.full_n.append(index)
@@ -64,51 +71,50 @@ class saver:
             if self.full_n.count(i) > 0:
                 counter += 1         
 
-
-        # update the trigger reference value from the latest updated channel
-        stamps_ref = [stamp]
-        for b in range(self.pv_count -1):
-            stamps_ref.append(stamps_ref[0])
-
- 
-      #  print stamps_ref
-      #  print self.stamps
- 
-        if counter == self.pv_count :
-            if self.stamps == stamps_ref:
+        if self.seen.all():
+            print 'comparing:'
+            print self.stamps
+            if (self.stamps == self.stamps[0]).all():
                 print 'Timestamps match'
             else:
                 counter = 0
                 print 'Timestamps DONT match'
+                print self.stamps
+                print stamps_ref
+                
               
-        if counter == self.pv_count :
-            # we've got all the channels
-            fname = os.path.join(PMDIR, FNAME + stamp)
-            print fname
-            savemat(fname, {'pm': self.results} , appendmat=True)
-            Sleep(5)
-            self.full_n = []
-            self.results[:] = 0
-            self.stamps = ['T' for sb in range(self.pv_count)]
+        if counter == self.pv_count:
+            # Compute the filename as the timestamp in UTC format in seconds.
+            filename = new_value.datetime.replace(microsecond = 0).isoformat()
+            self.write_result(new_value.timestamp, filename)
+
+            
+    def write_result(self, time, filename):
+        # Convert the results into complex numbers
+        result = self.results.reshape(self.pv_count/2, 2, -1)
+        result = result[:, 0] + 1j * result[:, 1]
+        
+        # we've got all the channels
+        fname = os.path.join(PMDIR, FNAME + filename)
+        print fname
+        savemat(fname, {'pm': result, 'time': time} , appendmat=True)
+        
+        Sleep(5)
+        self.full_n = []
+        self.results[:] = 0
+        self.seen[:] = False
+#        self.stamps = ['T' for sb in range(self.pv_count)]
             
   
-# epics channels for BPMS
+# epics channels for RF
 pv_list = [
-    'SR%02dC-DI-EBPM-%02d:SA:X' % (cell+1, n+1)
-    for cell in range(1)
-    for n in range(7)]
-    
-    # epics channels for RF
-letters = ["A", "B", "C", "D"]
-RI = ["I", "Q"]
-pv_list = [
-    'SR-RF-PM-%02d:PM:WF%c%c' % (p+1, letters[n], RI[m])
+    'SR-RF-PM-%02d:PM:WF%c%c' % (p+1, button, iq)
     for p in range(1)
-    for n in range(1)
-    for m in range(1)]
+    for button in 'ABCD'
+    for iq in 'IQ']
 print pv_list
 
            # save task
 if __name__ == "__main__":
-    s = saver(pv_list)
+    s = saver(pv_list, 2**14)
     WaitForQuit()
