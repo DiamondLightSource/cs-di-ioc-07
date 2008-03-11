@@ -96,8 +96,11 @@ class saver:
         
         # we've got all the channels
         fname = os.path.join(PMDIR, FNAME + filename)
-        print fname
-        savemat(fname, {'pm': result, 'time': time} , appendmat=True)
+        if os.path.exists(fname) and os.path.isfile(fname):
+           print 'File already exists'
+        else:
+            print fname
+            savemat(fname, {'pm': result, 'time': time} , appendmat=True)
         
         Sleep(5)
         self.full_n = []
