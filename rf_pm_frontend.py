@@ -5,16 +5,31 @@
 from pkg_resources import require
 require('cothread')
 require('matplotlib')
+
 from cothread import *
-readline_hook()
 iqt()
+
 from pylab import *
 from numpy import *
-#from qwt.qplt import *
 from qt import *
 from scipy.io import loadmat
+import sys
 
-m = loadmat('/tmp/rf_postmortem_2008-03-05T06:19:24.mat')
+print 'args:', sys.argv
+
+if len(sys.argv) > 1:
+    filename = sys.argv[1]
+else:
+    # No filename specified, so prompt for filename!
+    import tkFileDialog
+    filename = tkFileDialog.askopenfilename(
+        initialdir = '/tmp',
+        filetypes = ['mat *.mat'])
+    if not filename:
+        sys.exit(1)
+
+m = loadmat(filename)
+
 # splitting out the data and the timestamp
 time = m['time']
 pm = m['pm']
@@ -26,3 +41,5 @@ for n in range(1,4):
     plot(180/pi * unwrap(angle(pmN.T[-2000:, n])))
     subplot(3,2,2*n)
     plot(pmN.T[-2000:, n])
+
+WaitForQuit()
