@@ -29,7 +29,7 @@ from cothread.catools import *
 from numpy import *
 from scipy.io import savemat
 
-PMDIR = "/tmp"
+PMDIR = "/home/ops/rf/RF-libera/RF_Postmortems"
 FNAME = "rf_postmortem"
 
 
