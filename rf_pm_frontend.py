@@ -38,8 +38,16 @@ pmN = pm / pm[0]
 # Plotting phase and magnitude plots
 for n in range(1,4):
     subplot(3,2,n+(n-1))
-    plot(180/pi * unwrap(angle(pmN.T[-2000:, n])))
+    title('Phase')
+    xlabel('Turns')
+    ylabel('Degrees')
+    plot(linspace(-1000,1000,2000),180/pi * unwrap(angle(pmN.T[-2000:, n])))
+    axvline(0)  
     subplot(3,2,2*n)
-    plot(pmN.T[-2000:, n])
+    title('Magnitude')
+    xlabel('Turns')
+    ylabel('Signal (a.u.)')
+    plot(linspace(-1000,1000,2000),pmN.T[-2000:, n])
+    axvline(0)
 
 WaitForQuit()
