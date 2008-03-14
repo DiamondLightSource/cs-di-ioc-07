@@ -14,8 +14,9 @@ from numpy import *
 from qt import *
 from scipy.io import loadmat
 import sys
+from datetime import datetime
 
-print 'args:', sys.argv
+#print 'args:', sys.argv
 
 if len(sys.argv) > 1:
     filename = sys.argv[1]
@@ -23,7 +24,7 @@ else:
     # No filename specified, so prompt for filename!
     import tkFileDialog
     filename = tkFileDialog.askopenfilename(
-        initialdir = '/tmp',
+        initialdir = '/home/ops/rf/RF-libera/RF_Postmortems',
         filetypes = ['mat *.mat'])
     if not filename:
         sys.exit(1)
@@ -31,19 +32,28 @@ else:
 m = loadmat(filename)
 
 # splitting out the data and the timestamp
-time = m['time']
+utctime = m['time']
 pm = m['pm']
 # Channel 0 is RF reference so all other channels are relative to this.
 pmN = pm / pm[0]
 # Plotting phase and magnitude plots
+a = axes([0,0,1,0.93],axisbg='grey')
+setp(a,xticks=[],yticks=[])
+time = datetime.fromtimestamp(utctime)   
+disptime = ['RF postmortem for ',str(time.day),'/',str(time.month),'/',str(time.year),' at ',str(time.hour),':',str(time.minute),'.',str(time.second)]
+disptime = ''.join(disptime)
+title(disptime)
+#setp(a, xticks=[],yticks=[])
 for n in range(1,4):
-    subplot(3,2,n+(n-1))
+  #  subplot(3,2,n+(n-1))
+    axes([0.1,0.08+(n-1)*0.3,0.35,0.2])
     title('Phase')
     xlabel('Turns')
     ylabel('Degrees')
     plot(linspace(-1000,1000,2000),180/pi * unwrap(angle(pmN.T[-2000:, n])))
     axvline(0)  
-    subplot(3,2,2*n)
+  #  subplot(3,2,2*n)
+    axes([0.6,0.08+(n-1)*0.3,0.35,0.2])
     title('Magnitude')
     xlabel('Turns')
     ylabel('Signal (a.u.)')
