@@ -17,7 +17,7 @@
 
 if __name__ == "__main__":
     from pkg_resources import require as Require
-    Require('cothread')
+    Require('cothread==1.5')
 
 # Sets the max waveform size for EPICS.  This needs to be set *before* we
 # load the cothread library so that CA pays attention to it!

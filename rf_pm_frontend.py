@@ -3,8 +3,8 @@
 # This is the frontend for the RF postmortem. It displays magnitude and phase infromation for channels 2-4. It uses channel 1 as the reference signal (i.e. the RF)
 
 from pkg_resources import require
-require('cothread')
-require('matplotlib')
+require('cothread==1.5')
+require('matplotlib==0.91.1')
 
 from cothread import *
 iqt()
@@ -43,6 +43,7 @@ time = datetime.fromtimestamp(utctime)
 disptime = ['RF postmortem for ',str(time.day),'/',str(time.month),'/',str(time.year),' at ',str(time.hour),':',str(time.minute),'.',str(time.second)]
 disptime = ''.join(disptime)
 title(disptime)
+ioff()
 #setp(a, xticks=[],yticks=[])
 for n in range(1,4):
   #  subplot(3,2,n+(n-1))
@@ -59,5 +60,7 @@ for n in range(1,4):
     ylabel('Signal (a.u.)')
     plot(linspace(-1000,1000,2000),pmN.T[-2000:, n])
     axvline(0)
+draw()
+show()
 
 WaitForQuit()
