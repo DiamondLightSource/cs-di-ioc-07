@@ -1,4 +1,4 @@
-#!/usr/bin/env python2.4
+#!/dls_sw/tools/bin/python2.4
 
 # This is the postmortem back end for the RF(and BPMs)
 #
