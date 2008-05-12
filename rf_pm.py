@@ -14,6 +14,7 @@
 #
 # Author Alun Morgan
 
+TESTING = False
 
 if __name__ == "__main__":
     from pkg_resources import require as Require
@@ -25,18 +26,21 @@ import os, datetime, time
 os.environ["EPICS_CA_MAX_ARRAY_BYTES"] = "3000000"
 
 from cothread import *
+from cothread.cothread import Timer
 from cothread.catools import *
 from numpy import *
 from scipy.io import savemat
 
-PMDIR = "/home/ops/rf/RF-libera/RF_Postmortems"
 FNAME = "rf_postmortem"
-
+if TESTING:
+    PMDIR = '/tmp/rfpm'
+    RFPMS = ['TS-DI-EBPM-%02d' % (id+1) for id in range(3)]
+else:
+    PMDIR = "/home/ops/rf/RF-libera/RF_Postmortems"
+    RFPMS = ['SR-RF-PM-%02d' % (id+1) for id in range(3)]
 
 
 class Saver:
-
-    # object constructor
     def __init__(self, id, pv_list, wf_len):
         self.id = id
         self.pv_list = pv_list
@@ -45,10 +49,12 @@ class Saver:
         # lookup index name from channel name
         self.stamps = zeros(self.pv_count)
         self.seen = zeros(self.pv_count, dtype = bool)
+        self.triggered = False
         #connect pvs
         camonitor(self.pv_list, self.update_array_entry, format = FORMAT_TIME)
             
     def update_array_entry(self, new_value, index):
+        print 'update', new_value.name
         # Record the incoming data.
         self.results[index] = new_value
         self.stamps[index] = new_value.timestamp
@@ -58,10 +64,19 @@ class Saver:
             # If we've seen them all then check that they've all got the same
             # timestamp.
             if (self.stamps == self.stamps[0]).all():
-                # Compute the filename as the timestamp in UTC format in
-                # seconds.
-                self.write_result(
-                    new_value.timestamp, self.filename(new_value))
+                if self.triggered:
+                    print 'Ignoring trigger at time', new_value.timestamp
+                else:
+                    self.triggered = True
+                    self.write_result(
+                        new_value.timestamp, self.filename(new_value))
+                    # Refuse to trigger for another five seconds
+                    Timer(5, self.reset)
+
+                # Once we've processed (or discarded) a complete consistent
+                # sample reset all the flags until next time.
+                self.results[:] = 0
+                self.seen[:] = False
             else:
                 # If the timestamps don't match keep on watching until they
                 # do.
@@ -69,7 +84,7 @@ class Saver:
 
 
     def filename(self, new_value):
-        # Computes the filename from the timestamp.
+        # Computes the filename from the timestamp in UTC format in seconds.
         datestring = new_value.datetime.replace(microsecond = 0).isoformat()
         return os.path.join(PMDIR,
             '%s-%02d-%s.mat' % (FNAME, self.id, datestring))
@@ -86,18 +101,17 @@ class Saver:
         else:
             print 'Writing pm', filename
             savemat(filename, {'pm': result, 'time': time} , appendmat=True)
-        
-        Sleep(5)
-        self.results[:] = 0
-        self.seen[:] = False
+
+    def reset(self):
+        self.triggered = False
             
   
 # epics channels for RF
 pv_lists = [
-    (id, ['SR-RF-PM-%02d:PM:WF%c%c' % (id, button, iq)
+    (id+1, ['%s:PM:WF%c%c' % (rfpm, button, iq)
         for button in 'ABCD'
         for iq in 'IQ'])
-    for id in [1, 2, 3]]
+    for id, rfpm in enumerate(RFPMS)]
 
 
 # save task
