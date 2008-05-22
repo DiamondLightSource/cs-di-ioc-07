@@ -20,17 +20,16 @@ from rf_pm_file_select import *
 path_to_files = '/home/ops/rf/RF-libera/RF_Postmortems/'
 
 # if given an argument (whatever) will use file_list to find out the required filenames otherwise it will ask for a file through the browser.
-if len(sys.argv) > 1:
-    filenames, timestamps = file_list(path_to_files)
-    #for h in range(1,len(sys.argv)):
-        #name_trimmed = sys.argv[h]
-        #print name_trimmed
-        #name_trimmed = name_trimmed[:-6]
-        #print name_trimmed
-        #filenames.append(name_trimmed)
+print len(sys.argv)
+if len(sys.argv) == 7:
+    filenames = file_list(sys.argv[1],path_to_files,sys.argv[2],sys.argv[3],sys.argv[4],sys.argv[5],sys.argv[6])
+    print filenames
+elif len(sys.argv) == 2:
+    # takes the n newest files
+    filenames = file_list(sys.argv[1],path_to_files,'*','*','*','*','*')
+    print filenames
 else:
     filenames = []
-    #timestamps = []
     # No filename specified, so prompt for filename!
     import tkFileDialog
     filename = tkFileDialog.askopenfilename(
@@ -39,8 +38,8 @@ else:
     if not filename:
         sys.exit(1)
     else:
-        filenames.append(filename[1])
-        #timestamps.append(filename[0])
+        filenames.append(filename)
+    print filenames    
         
 utctime = []
 pmN = []
@@ -70,16 +69,15 @@ for d in range(len(utctime)):
     if cavity[d]!=cavity[0]:
         same_cavity = 'False'
 
+title_time = datetime.fromtimestamp(utctime[0])  
+disptime = ['RF postmortem for ',str(title_time.day),'/',str(title_time.month),'/',str  (title_time.year),' at ',str(title_time.hour),':',str(title_time.minute)]
+disptime = ''.join(disptime)
+
 # case for one dataset
 if len(utctime) == 1:
-    title_time = datetime.fromtimestamp(utctime[0])   
-    disptime = ['RF postmortem for ',str(title_time.day),'/',str(title_time.month),'/',str  (title_time.year),' at ',str(title_time.hour),':',str(title_time.minute),'.',str(title_time.second),' (cavity ',cavity[0],')']
-    disp = ''.join(disptime)
+    disp = disptime + ' (cavity ' + str(cavity[0]) + ')'
 # for multiple data sets with the same timestamp to the nearest second (i.e. the same incedent for all cavities)
 elif len(utctime) > 1 and same_ts=='True':
-    title_time = datetime.fromtimestamp(utctime[0])  
-    disptime = ['RF postmortem for ',str(title_time.day),'/',str(title_time.month),'/',str  (title_time.year),' at ',str(title_time.hour),':',str(title_time.minute),'.',str(title_time.second)]
-    disptime = ''.join(disptime)
     disp = disptime + '\nBlue is cavity ' + str(cavity[0]) + ' Green is cavity ' + str(cavity[1])
 elif len(utctime) > 1 and same_cavity=='True':
     disp_temp = ['RF postmortems for cavity ', str(cavity[0])]
