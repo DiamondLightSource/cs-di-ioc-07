@@ -54,7 +54,9 @@ class Saver:
         camonitor(self.pv_list, self.update_array_entry, format = FORMAT_TIME)
             
     def update_array_entry(self, new_value, index):
-        print 'update', new_value.name
+        if not new_value.ok:
+            return
+            
         # Record the incoming data.
         self.results[index] = new_value
         self.stamps[index] = new_value.timestamp
