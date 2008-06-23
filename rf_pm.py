@@ -14,11 +14,19 @@
 #
 # Author Alun Morgan
 
-TESTING = False
+
+# Values for testing
+#PMDIR = '/tmp/rfpm'
+#RFPMS = ['TS-DI-EBPM-%02d' % (id+1) for id in range(3)]
+
+# Values for operation
+PMDIR = "/home/ops/rf/RF-libera/RF_Postmortems"
+RFPMS = ['SR-RF-PM-%02d' % (id+1) for id in range(3)]
+
 
 if __name__ == "__main__":
     from pkg_resources import require as Require
-    Require('cothread==1.5')
+    Require('cothread==1.7')
 
 # Sets the max waveform size for EPICS.  This needs to be set *before* we
 # load the cothread library so that CA pays attention to it!
@@ -32,12 +40,6 @@ from numpy import *
 from scipy.io import savemat
 
 FNAME = "rf_postmortem"
-if TESTING:
-    PMDIR = '/tmp/rfpm'
-    RFPMS = ['TS-DI-EBPM-%02d' % (id+1) for id in range(3)]
-else:
-    PMDIR = "/home/ops/rf/RF-libera/RF_Postmortems"
-    RFPMS = ['SR-RF-PM-%02d' % (id+1) for id in range(3)]
 
 
 class Saver:
@@ -51,12 +53,10 @@ class Saver:
         self.seen = zeros(self.pv_count, dtype = bool)
         self.triggered = False
         #connect pvs
-        camonitor(self.pv_list, self.update_array_entry, format = FORMAT_TIME)
+        camonitor(self.pv_list, self.update_array_entry,
+            format = FORMAT_TIME, notify_disconnect = False)
             
     def update_array_entry(self, new_value, index):
-        if not new_value.ok:
-            return
-            
         # Record the incoming data.
         self.results[index] = new_value
         self.stamps[index] = new_value.timestamp
@@ -87,7 +87,8 @@ class Saver:
 
     def filename(self, new_value):
         # Computes the filename from the timestamp in UTC format in seconds.
-        datestring = new_value.datetime.replace(microsecond = 0).isoformat()
+        dt = datetime.datetime.fromtimestamp(new_value.timestamp)
+        datestring = dt.replace(microsecond = 0).isoformat()
         return os.path.join(PMDIR,
             '%s-%02d-%s.mat' % (FNAME, self.id, datestring))
 
