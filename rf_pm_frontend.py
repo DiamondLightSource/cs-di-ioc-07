@@ -54,6 +54,10 @@ for filename in filenames:
     pm = pm / pm[0]
     pmN.append(pm)
     
+pmN.reverse()
+cavity.reverse()
+utctime.reverse()
+    
 # Plotting phase and magnitude plots
 
 # generating the title display
@@ -76,11 +80,15 @@ disptime = ''.join(disptime)
 # case for one dataset
 if len(utctime) == 1:
     disp = disptime + ' (cavity ' + str(cavity[0]) + ')'
-# for multiple data sets with the same timestamp to the nearest second (i.e. the same incedent for all cavities)
+# for multiple data sets with the same timestamp to the nearest second (i.e. the same incident for all cavities)
 elif len(utctime) > 1 and same_ts=='True':
     disp = disptime + '\nBlue is cavity ' + str(cavity[0]) + ' Green is cavity ' + str(cavity[1])
 elif len(utctime) > 1 and same_cavity=='True':
-    disp_temp = ['RF postmortems for cavity ', str(cavity[0])]
+    colour_list = ['blue','green','red','cyan','magenta','yellow','black','white']
+    disp_temp = ['RF postmortems for cavity ', str(cavity[0]), '\n']
+    for f in range(len(utctime)):
+        date_temp = datetime.fromtimestamp(utctime[f])
+        disp_temp.extend([colour_list[f], ' is ',str(date_temp.day),'/',str(date_temp.month),'/',str(date_temp.year),' at ',str(date_temp.hour),':',str(date_temp.minute),'   '])
     disp = ''.join(disp_temp)
     # need to add legend somewhere
 else:
@@ -88,24 +96,27 @@ else:
 
 title(disp)    
 ioff()
-
+head1 = ['Cavity Phase', 'Forward Phase','Reflected Phase']
+head2 = ['Cavity Magnitude', 'Forward Magnitude','Reflected Magnitude']
 x_axis = linspace(-1000,1000,2000)
 for n in range(1,4):
     axes([0.1,0.08+(n-1)*0.3,0.35,0.2])
-    title('Phase')
+    title(head1[n-1])
     xlabel('Turns')
     ylabel('Degrees')
     for h in range(len(utctime)):
         plot(x_axis,180/pi * unwrap(angle(pmN[h].T[-2000:, n])))
+        grid(color='grey', linestyle=':', linewidth=1, alpha=0.5)
         hold
     hold
     axvline(0)  
     axes([0.6,0.08+(n-1)*0.3,0.35,0.2])
-    title('Magnitude')
+    title(head2[n-1])
     xlabel('Turns')
     ylabel('Signal (a.u.)')
     for h in range(len(utctime)):
-        plot(x_axis,pmN[h].T[-2000:, n])
+        plot(x_axis,abs(pmN[h].T[-2000:, n]))
+        grid(color='grey', linestyle=':', linewidth=1, alpha=0.5)
         hold
     hold
     axvline(0)
