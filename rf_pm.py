@@ -20,7 +20,7 @@
 #RFPMS = ['TS-DI-EBPM-%02d' % (id+1) for id in range(3)]
 
 # Values for operation
-PMDIR = "/home/ops/rf/RF-libera/RF_Postmortems"
+PMDIR = "/dls/ops-data/Postmortems/RF_Postmortems"
 RFPMS = ['SR-RF-PM-%02d' % (id+1) for id in range(3)]
 
 

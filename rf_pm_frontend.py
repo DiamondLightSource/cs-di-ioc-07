@@ -17,7 +17,7 @@ import sys
 from datetime import datetime
 from rf_pm_file_select import *
 
-path_to_files = '/home/ops/rf/RF-libera/RF_Postmortems/'
+path_to_files = '/dls/ops-data/Postmortems/RF_Postmortems/'
 
 # if given an argument (whatever) will use file_list to find out the required filenames otherwise it will ask for a file through the browser.
 print len(sys.argv)
