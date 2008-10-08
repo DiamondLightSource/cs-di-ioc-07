@@ -16,17 +16,23 @@
 
 
 # Values for testing
-#PMDIR = '/tmp/rfpm'
 #RFPMS = ['TS-DI-EBPM-%02d' % (id+1) for id in range(3)]
 
-# Values for operation
-PMDIR = "/dls/ops-data/Postmortems/RF_Postmortems"
+DEBUG = 'D' in sys.argv
+
+if DEBUG:
+    PMDIR = "/tmp/rfpm"
+else:
+    # Values for operation
+    PMDIR = "/dls/ops-data/Postmortems/RF_Postmortems"
+    
 RFPMS = ['SR-RF-PM-%02d' % (id+1) for id in range(3)]
 
 
 if __name__ == "__main__":
     from pkg_resources import require as Require
-    Require('cothread==1.7')
+    Require('numpy==1.1.0')
+    Require('cothread==1.9')
 
 # Sets the max waveform size for EPICS.  This needs to be set *before* we
 # load the cothread library so that CA pays attention to it!
@@ -70,8 +76,7 @@ class Saver:
                     print 'Ignoring trigger at time', new_value.timestamp
                 else:
                     self.triggered = True
-                    self.write_result(
-                        new_value.timestamp, self.filename(new_value))
+                    self.write_result(new_value)
                     # Refuse to trigger for another five seconds
                     Timer(5, self.reset)
 
@@ -87,13 +92,18 @@ class Saver:
 
     def filename(self, new_value):
         # Computes the filename from the timestamp in UTC format in seconds.
-        dt = datetime.datetime.fromtimestamp(new_value.timestamp)
+        dt = datetime.datetime.utcfromtimestamp(new_value.timestamp)
+        dirname = '%4d-%02d' % (dt.year, dt.month)
+        dirname = os.path.join(PMDIR, dirname)
         datestring = dt.replace(microsecond = 0).isoformat()
-        return os.path.join(PMDIR,
+        filename = os.path.join(dirname,
             '%s-%02d-%s.mat' % (FNAME, self.id, datestring))
+        return dirname, filename
 
             
-    def write_result(self, time, filename):
+    def write_result(self, new_value)
+        dirname, filename = self.filename(new_value)
+        time = new_value.timestamp
         # Convert the results into complex numbers
         result = self.results.reshape(self.pv_count/2, 2, -1)
         result = result[:, 0] + 1j * result[:, 1]
@@ -102,8 +112,12 @@ class Saver:
         if os.path.isfile(filename):
             print 'File %s already exists' % filename
         else:
+            if not os.path.isdir(dirname):
+                print 'Creating', dirname
+                os.mkdir(dirname)
             print 'Writing pm', filename
-            savemat(filename, {'pm': result, 'time': time} , appendmat=True)
+            data = dict(pm = result, time = new_value.timestamp)
+            savemat(filename, data, appendmat=True)
 
     def reset(self):
         self.triggered = False
