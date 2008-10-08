@@ -18,6 +18,7 @@
 # Values for testing
 #RFPMS = ['TS-DI-EBPM-%02d' % (id+1) for id in range(3)]
 
+import sys
 DEBUG = 'D' in sys.argv
 
 if DEBUG:
@@ -101,7 +102,7 @@ class Saver:
         return dirname, filename
 
             
-    def write_result(self, new_value)
+    def write_result(self, new_value):
         dirname, filename = self.filename(new_value)
         time = new_value.timestamp
         # Convert the results into complex numbers
