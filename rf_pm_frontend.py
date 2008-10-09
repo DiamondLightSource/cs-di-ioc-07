@@ -5,8 +5,14 @@
 # (i.e. the RF)
 
 from pkg_resources import require
-require('cothread==1.5')
+require('cothread==1.9')
+require('numpy==1.1.0')
 require('matplotlib==0.91.1')
+
+import sys
+DEBUG = len(sys.argv) > 1 and sys.argv[1] == 'D'
+if DEBUG:
+    del sys.argv[1]
 
 from cothread import *
 iqt()
@@ -19,32 +25,32 @@ import sys
 from datetime import datetime
 from rf_pm_file_select import file_list
 
-path_to_files = '/dls/ops-data/Postmortems/RF_Postmortems/'
+if DEBUG:
+    PMDIR = "/tmp/rfpm"
+else:
+    # Values for operation
+    PMDIR = "/dls/ops-data/Postmortems/RF_Postmortems"
 
 # if given an argument (whatever) will use file_list to find out the required
 # filenames otherwise it will ask for a file through the browser.
-print len(sys.argv)
 if len(sys.argv) == 7:
-    filenames = file_list(
-        sys.argv[1], path_to_files, sys.argv[2], sys.argv[3],
-        sys.argv[4], sys.argv[5], sys.argv[6])
-    print filenames
+    filenames = file_list(PMDIR, *sys.argv[1:])
 elif len(sys.argv) == 2:
     # takes the n newest files
-    filenames = file_list(sys.argv[1], path_to_files, '*', '*', '*', '*', '*')
-    print filenames
+    filenames = file_list(PMDIR, sys.argv[1], '*', '*', '*', '*', '*')
 else:
     filenames = []
     # No filename specified, so prompt for filename!
     import tkFileDialog
     filename = tkFileDialog.askopenfilename(
-        initialdir = path_to_files,
+        initialdir = PMDIR,
         filetypes = ['mat *.mat'])
     if not filename:
         sys.exit(1)
     else:
         filenames.append(filename)
-    print filenames    
+for name in filenames:
+    print name
         
 utctime = []
 pmN = []
@@ -99,10 +105,10 @@ elif len(utctime) > 1 and same_cavity=='True':
     disp_temp = ['RF postmortems for cavity ', str(cavity[0]), '\n']
     for f in range(len(utctime)):
         date_temp = datetime.fromtimestamp(utctime[f])
-        disp_temp.extend([
-            colour_list[f], ' is ', str(date_temp.day), '/',
-            str(date_temp.month), '/', str(date_temp.year), ' at ',
-            str(date_temp.hour), ':', str(date_temp.minute), '   '])
+        disp_temp.append(
+            '%s is %s/%s/%s at %s:%s   ' % (
+                colour_list[f % 8], date_temp.day, date_temp.month,
+                date_temp.year, date_temp.hour, date_temp.minute))
     disp = ''.join(disp_temp)
     # need to add legend somewhere
 else:

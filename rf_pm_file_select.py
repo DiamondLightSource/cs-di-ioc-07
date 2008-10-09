@@ -4,51 +4,31 @@
 # modified date/time and display in order newest file first
 import os
 import glob
-import time, sys, re
+import time, sys
 
-def file_list(out_length, root, cavity, pm_day, pm_month, pm_year, pm_time):
+def file_list(root, out_length, cavity, pm_day, pm_month, pm_year, pm_time):
     #root is the path to the files.
-    #head of pm filename
-    pm_head = 'rf_postmortem-0'
     date_file_list = []
     file_list = []
-    if cavity=='*':
-        cavity='(1|2|3)'
-    if pm_day == '*':
-        pm_day = '([0-9][0-9])'
-    if pm_month == '*':
-        pm_month = '([0-9][0-9])'
-    if pm_year == '*':
-        pm_year = '([0-9][0-9][0-9][0-9])'
-    if pm_time == '*':
-        pm_time = '([0-9][0-9]:[0-9][0-9]:[0-9][0-9])'
-   #constructing search value
-    search_string = \
-        str(root) + pm_head + str(cavity) + '-' + \
-        str(pm_year) + '-' + str(pm_month) + '-' + str(pm_day) + \
-        'T' + str(pm_time) + '.mat'
-    val = re.compile(search_string)
-    for folder in glob.glob(root):
-#        print 'folder =', folder
-        # select the type of file, for instance *.mat or all files *.*
-        for file in glob.glob(folder + '/' +pm_head +'*.mat'):
-            if val.match(file):
-                # get date from filename
-                pm_date = file[55:-4]
-                pm_date = time.strptime(pm_date, '%Y-%m-%dT%H:%M:%S')
-                # create list of tuples ready for sorting by date
-                date_file_tuple = (pm_date, file)
-                date_file_list.append(date_file_tuple)
-                file_list.append(file)
-        
+    # Constructing search value
+    search_string = '%s/*/rf_postmortem-0%s-%s-%s-%sT%s.mat' % (
+        root, cavity, pm_year, pm_month, pm_day, pm_time)
 
-    date_file_list.sort()
-    date_file_list.reverse()  # newest mod date now first
-    # Changing from 1 list of 2D tuples to 2 tuples the length of the original
-    # list
-    names = zip(*date_file_list)[1]
-    file_list = names[0:int(out_length)]
-    return file_list
+    # Naughty code: we're trying to select the last n values sorted by date.
+    # We "know" that the date occupies characters [-23:-4] and the cavity is
+    # [-26:-24].
+    sortable_names = [
+        (name[-23:-4], name[-26:-24], name)
+        for name in glob.glob(search_string)]
+
+    if not sortable_names:
+        print >>sys.stderr, 'No files found'
+        print >>sys.stderr, 'Searching', search_string
+        sys.exit(1)
+    
+    sortable_names.sort()
+    return [filename
+        for _, _, filename in sortable_names[-int(out_length):]]
 
 
 # save task

@@ -14,6 +14,11 @@
 #
 # Author Alun Morgan
 
+if __name__ == "__main__":
+    from pkg_resources import require as Require
+    Require('numpy==1.1.0')
+    Require('cothread==1.9')
+
 
 # Values for testing
 #RFPMS = ['TS-DI-EBPM-%02d' % (id+1) for id in range(3)]
@@ -29,11 +34,6 @@ else:
     
 RFPMS = ['SR-RF-PM-%02d' % (id+1) for id in range(3)]
 
-
-if __name__ == "__main__":
-    from pkg_resources import require as Require
-    Require('numpy==1.1.0')
-    Require('cothread==1.9')
 
 # Sets the max waveform size for EPICS.  This needs to be set *before* we
 # load the cothread library so that CA pays attention to it!
