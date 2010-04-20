@@ -34,7 +34,9 @@ def display_waveforms(time, *pms):
     timebase = linspace(-1000, 1000, 2000)
     colours = ['blue', 'green', 'cyan']
     for n, channel in enumerate(channels):
-        plots = list(reversed(zip(pms, colours)))
+        plots = [(pm, colour)
+            for pm, colour in reversed(zip(pms, colours))
+            if not any(isnan(pm))]
         
         axes([0.1, 0.08 + 0.3*n, 0.35, 0.2])
         title('%s Phase' % channel)

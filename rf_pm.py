@@ -186,16 +186,16 @@ class Logger:
   
 # epics channels for RF
 pv_lists = [
-    (id+1, ['%s:PM:WF%c%c' % (rfpm, button, iq)
+    ['%s:PM:WF%c%c' % (rfpm, button, iq)
         for button in 'ABCD'
-        for iq in 'IQ'])
-    for id, rfpm in enumerate(RFPMS)]
+        for iq in 'IQ']
+    for rfpm in RFPMS]
 
 
 # save task
 if __name__ == '__main__':
     logger = Logger(len(RFPMS))
     savers = [
-        Saver(id, pv_list, 2**14, logger.log_event(id))
-        for id, pv_list in pv_lists]
+        Saver(id + 1, pv_list, 2**14, logger.log_event(id))
+        for id, pv_list in enumerate(pv_lists)]
     WaitForQuit()
