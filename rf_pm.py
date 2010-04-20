@@ -14,6 +14,8 @@
 
 
 if __name__ == '__main__':
+    import os
+    os.environ['MPLCONFIGDIR'] = '/tmp'
     from pkg_resources import require as Require
     Require('numpy==1.1.0')
     Require('cothread==1.15')

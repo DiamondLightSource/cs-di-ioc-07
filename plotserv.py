@@ -3,10 +3,10 @@
 import sys, os
 
 if __name__ == '__main__':
+    os.environ['MPLCONFIGDIR'] = '/tmp'
     from pkg_resources import require
     require('matplotlib == 0.91.1')
 
-os.environ['MPLCONFIGDIR'] = '/tmp'
 import matplotlib
 matplotlib.use('Agg')
 
