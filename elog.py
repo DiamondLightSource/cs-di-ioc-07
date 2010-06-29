@@ -70,5 +70,3 @@ def entry(title, content, png, debug):
     except:
         import traceback
         traceback.print_exc()
-    
-    

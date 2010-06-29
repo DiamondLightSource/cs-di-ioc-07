@@ -21,10 +21,10 @@ def display_waveforms(time, *pms):
     # Plotting phase and magnitude plots
     a = axes([0, 0, 1, 0.93], axisbg='grey')
     setp(a, xticks=[], yticks=[])
-    
+
     title(time.strftime('RF postmortem for %d/%m/%Y at %H:%M.%S'))
     ioff()
-    
+
     channels = ['Cavity', 'Forward', 'Reflected']
 
     # Normalise the plot arrays by dividing by the first entry and select the
@@ -37,7 +37,7 @@ def display_waveforms(time, *pms):
         plots = [(pm, colour)
             for pm, colour in reversed(zip(pms, colours))
             if not any(isnan(pm))]
-        
+
         axes([0.1, 0.08 + 0.3*n, 0.35, 0.2])
         title('%s Phase' % channel)
         xlabel('Turns')
@@ -46,7 +46,7 @@ def display_waveforms(time, *pms):
             plot(timebase, 180/pi * unwrap(angle(pm[n])), colour)
             hold(True)
         axvline(0, color = 'red')
-        
+
         axes([0.6, 0.08 + 0.3*n, 0.35, 0.2])
         title('%s Magnitude' % channel)
         xlabel('Turns')
@@ -55,12 +55,12 @@ def display_waveforms(time, *pms):
             plot(timebase, abs(pm[n]), colour)
             hold(True)
         axvline(0, color = 'red')
-        
+
     # print png to string buffer
     buf = cStringIO.StringIO()
     gcf().canvas.print_png(buf)
     return buf.getvalue()
-    
+
 
 if __name__ == '__main__':
     file1 = '/dls/ops-data/Postmortems/RF_Postmortems/2010-04/' \
@@ -72,6 +72,6 @@ if __name__ == '__main__':
     m1 = loadmat(file1)
     m2 = loadmat(file2)
     buf = display_waveforms(time(), m1['pm'], m2['pm'], ones([4, 2000]))
-    
+
     # post to elog
     elog.entry('RF Postmortem', 'RF Postmortem', buf, True)

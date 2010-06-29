@@ -24,6 +24,7 @@ if __name__ == '__main__':
 
 
 import sys
+import os
 DEBUG = 'D' in sys.argv
 
 if DEBUG:
@@ -31,7 +32,7 @@ if DEBUG:
 else:
     # Values for operation
     PMDIR = '/dls/ops-data/Postmortems/RF_Postmortems'
-    
+
 RFPMS = ['SR-RF-PM-%02d' % (id+1) for id in range(3)]
 
 
@@ -67,13 +68,13 @@ class Saver:
         #connect pvs
         camonitor(self.pv_list, self.update_array_entry,
             format = FORMAT_TIME, notify_disconnect = False)
-            
+
     def update_array_entry(self, new_value, index):
         # Record the incoming data.
         self.results[index] = new_value
         self.stamps[index] = new_value.timestamp
         self.seen[index] = True
-              
+
         if self.seen.all():
             # If we've seen them all then check that they've all got the same
             # timestamp.
@@ -106,11 +107,11 @@ class Saver:
             '%s-%02d-%s.mat' % (FNAME, self.id, datestring))
         return dirname, filename, dt
 
-            
+
     # we've got all the channels
     def write_result(self, new_value):
         dirname, filename, dt = self.filename(new_value)
-        
+
         if os.path.isfile(filename):
             print 'File %s already exists' % filename
         else:
@@ -127,7 +128,7 @@ class Saver:
 
             # Notify the logger
             self.on_event(dt, result, filename)
-            
+
 
     def reset(self):
         self.triggered = False
@@ -138,7 +139,7 @@ class Saver:
 PM_MESSAGE = \
     'Saved in %(filename)s\n' + \
     'Run the following command in a terminal window to view it:\n' + \
-    '%(where)s/rf_pm_frontend.py %(filename)s' 
+    '%(where)s/rf_pm_frontend.py %(filename)s'
 
 
 # This class aggregates updates from all of the reported postmortems.
@@ -152,7 +153,7 @@ class Logger:
         self.pms = [zeros([4, 2000])] * self.count
         self.seen = [False] * self.count
         self.filenames = [''] * self.count
-        
+
     def log_event(self, id):
         return lambda *args: self.process_one_event(id, *args)
 
@@ -175,17 +176,27 @@ class Logger:
             self.timer.cancel()
             self.timer = None
 
-        
-        buf = plotserv.display_waveforms(self.time, *self.pms)
-        message = 'RF Postmortem.  Files written to:\n%s' % \
-            '\n'.join([f for f in self.filenames if f])
-        elog.entry('RF Postmortem', message, buf, DEBUG)
-        print 'Logged RF Postmortem'
+        # Because the plotting library shows a memory leak, we fork the process
+        # of generating the elog entry.
+        if os.fork() == 0:
+            try:
+                buf = plotserv.display_waveforms(self.time, *self.pms)
+                message = 'RF Postmortem.  Files written to:\n%s' % \
+                    '\n'.join([f for f in self.filenames if f])
+                elog.entry('RF Postmortem', message, buf, DEBUG)
+                print 'Logged RF Postmortem'
+            finally:
+                # Rather important that we exit immediately, even if anything
+                # above fails.  Also we don't want to do any extra cleaning up,
+                # that's the parent process's job.
+                sys.stdout.flush()
+                sys.stderr.flush()
+                os._exit(0)
 
         self.reset()
-        
-            
-  
+
+
+
 # epics channels for RF
 pv_lists = [
     ['%s:PM:WF%c%c' % (rfpm, button, iq)
