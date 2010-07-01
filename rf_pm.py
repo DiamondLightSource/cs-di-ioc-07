@@ -1,5 +1,3 @@
-#!/dls_sw/tools/bin/dls-python2.4
-
 # This is the postmortem back end for the RF(and BPMs)
 #
 # The program waits for a reponse on all the monitored channels, then it
@@ -13,14 +11,14 @@
 # timeout option on camonitor?
 
 
-if __name__ == '__main__':
-    import os
-    os.environ['MPLCONFIGDIR'] = '/tmp'
-    from pkg_resources import require as Require
-    Require('numpy==1.1.0')
-    Require('cothread==1.15')
-    Require('matplotlib == 0.91.1')
+import os
+os.environ['MPLCONFIGDIR'] = '/tmp'
 
+from pkg_resources import require
+require('cothread==1.16')
+require('matplotlib==0.99.1.1-r0')
+require('scipy==0.8.0b1')
+require('iocbuilder==3.0')
 
 
 import sys
@@ -41,15 +39,44 @@ RFPMS = ['SR-RF-PM-%02d' % (id+1) for id in range(3)]
 import os, datetime, time
 os.environ['EPICS_CA_MAX_ARRAY_BYTES'] = '3000000'
 
-from cothread import *
-from cothread.cothread import Timer
-from cothread.catools import *
-from numpy import *
-from scipy.io import savemat
+import cothread
+from cothread import catools
+# from numpy import *
+import numpy
+import scipy.io
 import elog
 import plotserv
+import builder
+import softioc
+
 
 FNAME = 'rf_postmortem'
+
+
+# Routine for invoking a fork with all the appropriate precautions
+# Actually, in principle even this isn't safe, see:
+#   http://www.linuxprogrammingblog.com/\
+#       threads-and-fork-think-twice-before-using-them
+# Never mind.  We'll do it anyway...
+def safe_fork(fn, *args, **kargs):
+    pid = os.fork()
+    if pid == 0:
+        try:
+            fn(*args, **kargs)
+        except:
+            import traceback
+            traceback.print_exc()
+
+        # Rather important that we exit immediately, even if anything
+        # above fails.  Also we don't want to do any extra cleaning up,
+        # that's the parent process's job.
+        sys.stdout.flush()
+        sys.stderr.flush()
+        os._exit(0)
+    else:
+        # We'd better wait for the fork to complete, otherwise we'll spawn
+        # innumerable zombies.
+        os.waitpid(pid, 0)
 
 
 # Each instance of this class monitors a single BPM and writes the postmortem
@@ -60,14 +87,14 @@ class Saver:
         self.pv_list = pv_list
         self.on_event = on_event
         self.pv_count = len(pv_list)
-        self.results = zeros((self.pv_count, wf_len), dtype = float)
+        self.results = numpy.zeros((self.pv_count, wf_len), dtype = float)
         # lookup index name from channel name
-        self.stamps = zeros(self.pv_count)
-        self.seen = zeros(self.pv_count, dtype = bool)
+        self.stamps = numpy.zeros(self.pv_count)
+        self.seen = numpy.zeros(self.pv_count, dtype = bool)
         self.triggered = False
         #connect pvs
-        camonitor(self.pv_list, self.update_array_entry,
-            format = FORMAT_TIME, notify_disconnect = False)
+        catools.camonitor(self.pv_list, self.update_array_entry,
+            format = catools.FORMAT_TIME, notify_disconnect = False)
 
     def update_array_entry(self, new_value, index):
         # Record the incoming data.
@@ -85,7 +112,7 @@ class Saver:
                     self.triggered = True
                     self.write_result(new_value)
                     # Refuse to trigger for another five seconds
-                    Timer(5, self.reset)
+                    cothread.Timer(5, self.reset)
 
                 # Once we've processed (or discarded) a complete consistent
                 # sample reset all the flags until next time.
@@ -124,7 +151,7 @@ class Saver:
                 os.mkdir(dirname)
             print 'Writing pm', filename
             data = dict(pm = result, time = new_value.timestamp)
-            savemat(filename, data, appendmat=True)
+            scipy.io.savemat(filename, data, appendmat=True, oned_as='column')
 
             # Notify the logger
             self.on_event(dt, result, filename)
@@ -150,7 +177,7 @@ class Logger:
         self.timer = None
 
     def reset(self):
-        self.pms = [zeros([4, 2000])] * self.count
+        self.pms = [numpy.zeros([4, 2000])] * self.count
         self.seen = [False] * self.count
         self.filenames = [''] * self.count
 
@@ -168,7 +195,7 @@ class Logger:
         if all(self.seen):
             self.log_new_event()
         elif not self.timer:
-            self.timer = Timer(10, self.log_new_event)
+            self.timer = cothread.Timer(10, self.log_new_event)
 
     # All events have arrived, or at least we've given up waiting.
     def log_new_event(self):
@@ -178,22 +205,16 @@ class Logger:
 
         # Because the plotting library shows a memory leak, we fork the process
         # of generating the elog entry.
-        if os.fork() == 0:
-            try:
-                buf = plotserv.display_waveforms(self.time, *self.pms)
-                message = 'RF Postmortem.  Files written to:\n%s' % \
-                    '\n'.join([f for f in self.filenames if f])
-                elog.entry('RF Postmortem', message, buf, DEBUG)
-                print 'Logged RF Postmortem'
-            finally:
-                # Rather important that we exit immediately, even if anything
-                # above fails.  Also we don't want to do any extra cleaning up,
-                # that's the parent process's job.
-                sys.stdout.flush()
-                sys.stderr.flush()
-                os._exit(0)
-
+        safe_fork(self.write_elog_entry)
         self.reset()
+
+    def write_elog_entry(self):
+        buf = plotserv.display_waveforms(self.time, *self.pms)
+        message = 'RF Postmortem.  Files written to:\n%s' % \
+            '\n'.join([f for f in self.filenames if f])
+        elog.entry('RF Postmortem', message, buf, DEBUG)
+        print 'Logged RF Postmortem'
+
 
 
 
@@ -206,9 +227,19 @@ pv_lists = [
 
 
 # save task
-if __name__ == '__main__':
-    logger = Logger(len(RFPMS))
-    savers = [
-        Saver(id + 1, pv_list, 2**14, logger.log_event(id))
-        for id, pv_list in enumerate(pv_lists)]
-    WaitForQuit()
+logger = Logger(len(RFPMS))
+savers = [
+    Saver(id + 1, pv_list, 2**14, logger.log_event(id))
+    for id, pv_list in enumerate(pv_lists)]
+
+
+# A couple of identification PVs
+builder.SetDeviceName('CS-DI-IOC-07')
+builder.stringIn('WHOAMI', VAL = 'RF Postmortem Server')
+builder.stringIn('HOSTNAME', VAL = os.uname()[1])
+
+builder.LoadDatabase()
+softioc.iocInit()
+
+from softioc import *
+interactive_ioc(globals())
