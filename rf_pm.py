@@ -41,7 +41,6 @@ os.environ['EPICS_CA_MAX_ARRAY_BYTES'] = '3000000'
 
 import cothread
 from cothread import catools
-# from numpy import *
 import numpy
 import scipy.io
 import elog
