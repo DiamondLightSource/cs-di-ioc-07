@@ -15,10 +15,10 @@ import os
 os.environ['MPLCONFIGDIR'] = '/tmp'
 
 from pkg_resources import require
-require('cothread==1.16')
-require('matplotlib==0.99.1.1-r0')
+require('cothread==2.6')
+require('matplotlib==0.99.3-r0')
 require('scipy==0.8.0b1')
-require('iocbuilder==3.0')
+require('iocbuilder==3.23')
 
 
 import sys
@@ -45,8 +45,8 @@ import numpy
 import scipy.io
 import elog
 import plotserv
-import builder
-import softioc
+from softioc import builder
+from softioc import pvlog
 
 
 FNAME = 'rf_postmortem'
@@ -238,7 +238,8 @@ builder.stringIn('WHOAMI', VAL = 'RF Postmortem Server')
 builder.stringIn('HOSTNAME', VAL = os.uname()[1])
 
 builder.LoadDatabase()
+
+from softioc import softioc
 softioc.iocInit()
 
-from softioc import *
-interactive_ioc(globals())
+softioc.interactive_ioc(globals())
