@@ -10,35 +10,28 @@
 # throw an error in that case?) Apparently not it just sits there. Is there a
 # timeout option on camonitor?
 
-
+import sys
 import os
+
+# This needs to be set before loading matplotlib so that it uses the correct
+# temporary workspace for its files.
+# Note that this needs to be set before calling require() below as it turns out
+# that require() triggers some module loading events!
 os.environ['MPLCONFIGDIR'] = '/tmp'
 
+# Sets the max waveform size for EPICS.  This needs to be set *before* we
+# load the cothread library so that CA pays attention to it.
+os.environ['EPICS_CA_MAX_ARRAY_BYTES'] = '3000000'
+
+
 from pkg_resources import require
-require('cothread==2.6')
+require('cothread==2.8')
 require('matplotlib==0.99.3-r0')
 require('scipy==0.8.0b1')
 require('iocbuilder==3.23')
 
 
-import sys
-import os
-DEBUG = 'D' in sys.argv
-
-if DEBUG:
-    PMDIR = '/tmp/rfpm'
-else:
-    # Values for operation
-    PMDIR = '/dls/ops-data/Postmortems/RF_Postmortems'
-
-RFPMS = ['SR-RF-PM-%02d' % (id+1) for id in range(3)]
-
-
-# Sets the max waveform size for EPICS.  This needs to be set *before* we
-# load the cothread library so that CA pays attention to it!
-import os, datetime, time
-os.environ['EPICS_CA_MAX_ARRAY_BYTES'] = '3000000'
-
+import datetime, time
 import cothread
 from cothread import catools
 import numpy
@@ -48,6 +41,10 @@ import plotserv
 from softioc import builder
 from softioc import pvlog
 
+from config import *
+
+
+RFPMS = ['SR-RF-PM-%02d' % id for id in VALID_PMS]
 
 FNAME = 'rf_postmortem'
 
@@ -170,15 +167,16 @@ PM_MESSAGE = \
 
 # This class aggregates updates from all of the reported postmortems.
 class Logger:
-    def __init__(self, count):
-        self.count = count
+    def __init__(self, valid_ids):
+        self.valid_ids = valid_ids
         self.reset()
         self.timer = None
 
     def reset(self):
-        self.pms = [numpy.zeros([4, 2000])] * self.count
-        self.seen = [False] * self.count
-        self.filenames = [''] * self.count
+        self.pms = dict(
+            [(id, numpy.zeros([4, 2000])) for id in self.valid_ids])
+        self.seen = dict([(id, False) for id in self.valid_ids])
+        self.filenames = dict([(id, '') for id in self.valid_ids])
 
     def log_event(self, id):
         return lambda *args: self.process_one_event(id, *args)
@@ -191,7 +189,7 @@ class Logger:
             self.pms[id] = result
             self.seen[id] = True
             self.filenames[id] = filename
-        if all(self.seen):
+        if all(self.seen.values()):
             self.log_new_event()
         elif not self.timer:
             self.timer = cothread.Timer(10, self.log_new_event)
@@ -208,9 +206,10 @@ class Logger:
         self.reset()
 
     def write_elog_entry(self):
-        buf = plotserv.display_waveforms(self.time, *self.pms)
+        buf = plotserv.display_waveforms(
+            self.time, *[self.pms[id] for id in self.valid_ids])
         message = 'RF Postmortem.  Files written to:\n%s' % \
-            '\n'.join([f for f in self.filenames if f])
+            '\n'.join([self.filenames[id] for id in self.valid_ids])
         elog.entry('RF Postmortem', message, buf, DEBUG)
         print 'Logged RF Postmortem'
 
@@ -226,10 +225,10 @@ pv_lists = [
 
 
 # save task
-logger = Logger(len(RFPMS))
+logger = Logger(VALID_PMS)
 savers = [
-    Saver(id + 1, pv_list, 2**14, logger.log_event(id))
-    for id, pv_list in enumerate(pv_lists)]
+    Saver(id, pv_list, 2**14, logger.log_event(id))
+    for id, pv_list in zip(VALID_PMS, pv_lists)]
 
 
 # A couple of identification PVs
