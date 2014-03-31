@@ -25,10 +25,10 @@ os.environ['EPICS_CA_MAX_ARRAY_BYTES'] = '3000000'
 
 
 from pkg_resources import require
-require('cothread==2.8')
+require('cothread==2.10')
 require('matplotlib==0.99.3-r0')
-require('scipy==0.8.0b1')
-require('iocbuilder==3.23')
+require('scipy==0.10.1')
+require('iocbuilder==3.45')
 
 
 import datetime, time
