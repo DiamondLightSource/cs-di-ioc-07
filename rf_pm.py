@@ -93,6 +93,9 @@ class Saver:
             format = catools.FORMAT_TIME, notify_disconnect = False)
 
     def update_array_entry(self, new_value, index):
+        if len(new_value) == 0:
+            return      # Ignore empty value on initial BPM startup
+
         # Record the incoming data.
         self.results[index] = new_value
         self.stamps[index] = new_value.timestamp
