@@ -12,7 +12,7 @@ else:
 CONFIG_FILE = os.path.join(CONFIG_DIR, 'CS-DI-IOC-07.config')
 
 config_dir = {}
-execfile(CONFIG_FILE, {}, config_dir)
+exec(open(CONFIG_FILE).read(), {}, config_dir)
 
-__all__ = config_dir.keys()
+__all__ = list(config_dir.keys())
 globals().update(config_dir)

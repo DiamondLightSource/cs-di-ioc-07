@@ -1,24 +1,17 @@
 import sys, os
 
-if __name__ == '__main__':
-    os.environ['MPLCONFIGDIR'] = '/tmp'
-    from pkg_resources import require
-    require('matplotlib==0.99.3-r0')
 
 import matplotlib
+
 matplotlib.use('Agg')
 
 from pylab import *
 from numpy import *
-from datetime import datetime
-import cStringIO, pickle, elog
+import io, elog
 
 from config import *
 
-VALID_COLOURS = [
-    colour
-    for n, colour in enumerate(COLOURS)
-    if n + 1 in VALID_PMS]
+VALID_COLOURS = [colour for n, colour in enumerate(COLOURS) if n + 1 in VALID_PMS]
 
 
 def display_waveforms(time, *pms):
@@ -26,59 +19,67 @@ def display_waveforms(time, *pms):
 
     clf()
     # Plotting phase and magnitude plots
-    a = axes([0, 0, 1, 0.93], axisbg='grey')
+    a = axes([0, 0, 1, 0.93], facecolor='grey')
     setp(a, xticks=[], yticks=[])
 
     # Normalise the plot arrays by dividing by the first entry and select the
     # part we're actually going to plot
     pms = [pm[1:, -2000:] / pm[0, -2000:] for pm in pms]
 
-    plots = [(pm, colour)
-        for pm, colour in reversed(zip(pms, VALID_COLOURS))
-        if not any(isnan(pm))]
-    labels = ['%d: %s' % (n, colour)
+    plots = [
+        (pm, colour)
+        for pm, colour in reversed(list(zip(pms, VALID_COLOURS)))
+        if not any(isnan(pm))
+    ]
+    labels = [
+        '%d: %s' % (n, colour)
         for n, pm, colour in zip(VALID_PMS, pms, VALID_COLOURS)
-        if not any(isnan(pm))]
+        if not any(isnan(pm))
+    ]
 
-    title('RF PM for %s: %s' % (
-        time.strftime('%d/%m/%Y at %H:%M.%S'), ', '.join(labels)))
+    title(
+        'RF PM for %s: %s' % (time.strftime('%d/%m/%Y at %H:%M.%S'), ', '.join(labels))
+    )
     ioff()
 
     channels = ['Cavity', 'Forward', 'Reflected']
 
     timebase = linspace(-1000, 1000, 2000)
     for n, channel in enumerate(channels):
-        axes([0.1, 0.08 + 0.3*n, 0.35, 0.2])
+        axes([0.1, 0.08 + 0.3 * n, 0.35, 0.2])
         title('%s Phase' % channel)
         xlabel('Turns')
         ylabel('Degrees')
         for pm, colour in plots:
-            plot(timebase, 180/pi * unwrap(angle(pm[n])), colour)
-            hold(True)
-        axvline(0, color = 'red')
+            plot(timebase, 180 / pi * unwrap(angle(pm[n])), colour)
+        axvline(0, color='red')
 
-        axes([0.6, 0.08 + 0.3*n, 0.35, 0.2])
+        axes([0.6, 0.08 + 0.3 * n, 0.35, 0.2])
         title('%s Magnitude' % channel)
         xlabel('Turns')
         ylabel('Signal (a.u.)')
         for pm, colour in plots:
             plot(timebase, abs(pm[n]), colour)
-            hold(True)
-        axvline(0, color = 'red')
+        axvline(0, color='red')
 
     # print png to string buffer
-    buf = cStringIO.StringIO()
+    buf = io.BytesIO()
     gcf().canvas.print_png(buf)
     return buf.getvalue()
 
 
 if __name__ == '__main__':
-    file1 = '/dls/ops-data/Postmortems/RF_Postmortems/2010-04/' \
+    file1 = (
+        '/dls/ops-data/Postmortems/RF_Postmortems/2010-04/'
         'rf_postmortem-01-2010-04-14T06:45:08.mat'
-    file2 = '/dls/ops-data/Postmortems/RF_Postmortems/2010-04/' \
+    )
+    file2 = (
+        '/dls/ops-data/Postmortems/RF_Postmortems/2010-04/'
         'rf_postmortem-02-2010-04-14T06:45:08.mat'
+    )
     from scipy.io import loadmat
     from datetime import time
+
     m1 = loadmat(file1)
     m2 = loadmat(file2)
     mm = [m1['pm'], m2['pm'], ones([4, 2000])]
