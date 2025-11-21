@@ -1,0 +1,10 @@
+apiVersion: backstage.io/v1alpha1
+kind: Component
+metadata:
+  name: CS-DI-IOC-07
+  title: CS-DI-IOC-07
+  description: RF and BPM Postmortem Backend
+spec:
+  type: service
+  lifecycle: production
+  owner: group:default/accelerator-controls

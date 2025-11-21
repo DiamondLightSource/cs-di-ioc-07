@@ -1,7 +1,0 @@
-#!/bin/sh
-
-# Use venv from build step
-PY=".venv/bin/python"
-
-cd "$(dirname "$0")"
-exec $PY -u rf_pm.py "$@"

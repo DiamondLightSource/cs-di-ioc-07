@@ -10,35 +10,34 @@
 # throw an error in that case?) Apparently not it just sits there. Is there a
 # timeout option on camonitor?
 
-import sys
 import os
+import sys
 
 # This needs to be set before loading matplotlib so that it uses the correct
 # temporary workspace for its files.
 # Note that this needs to be set before calling require() below as it turns out
 # that require() triggers some module loading events!
-os.environ['MPLCONFIGDIR'] = '/tmp'
+os.environ["MPLCONFIGDIR"] = "/tmp"
 
 # Sets the max waveform size for EPICS.  This needs to be set *before* we
 # load the cothread library so that CA pays attention to it.
-os.environ['EPICS_CA_MAX_ARRAY_BYTES'] = '3000000'
+os.environ["EPICS_CA_MAX_ARRAY_BYTES"] = "3000000"
 
 
-import datetime, time
+import datetime
+
 import cothread
-from cothread import catools
 import numpy
 import scipy.io
-import elog
-import plotserv
+from cothread import catools
 from softioc import builder
 
-from config import *
+from . import elog, plotserv
+from .config import DEBUG, PMDIR, VALID_PMS
 
+RFPMS = [f"SR-RF-PM-{id:02d}" for id in VALID_PMS]
 
-RFPMS = ['SR-RF-PM-%02d' % id for id in VALID_PMS]
-
-FNAME = 'rf_postmortem'
+FNAME = "rf_postmortem"
 
 
 # Routine for invoking a fork with all the appropriate precautions
@@ -51,7 +50,7 @@ def safe_fork(fn, *args, **kargs):
     if pid == 0:
         try:
             fn(*args, **kargs)
-        except:
+        except Exception:
             import traceback
 
             traceback.print_exc()
@@ -103,7 +102,7 @@ class Saver:
             # timestamp.
             if (self.stamps == self.stamps[0]).all():
                 if self.triggered:
-                    print('Ignoring trigger at time', new_value.timestamp)
+                    print("Ignoring trigger at time", new_value.timestamp)
                 else:
                     self.triggered = True
                     self.write_result(new_value)
@@ -117,17 +116,15 @@ class Saver:
             else:
                 # If the timestamps don't match keep on watching until they
                 # do.
-                print('Timestamps don\'t match')
+                print("Timestamps don't match")
 
     def filename(self, new_value):
         # Computes the filename from the timestamp in UTC format in seconds.
-        dt = datetime.datetime.fromtimestamp(new_value.timestamp, datetime.timezone.utc)
-        dirname = '%4d-%02d' % (dt.year, dt.month)
+        dt = datetime.datetime.fromtimestamp(new_value.timestamp, datetime.UTC)
+        dirname = f"{dt.year:04d}-{dt.month:02d}"
         dirname = os.path.join(PMDIR, dirname)
         datestring = dt.replace(microsecond=0).isoformat()
-        filename = os.path.join(
-            dirname, '%s-%02d-%s.mat' % (FNAME, self.id, datestring)
-        )
+        filename = os.path.join(dirname, f"{FNAME}-{self.id:02d}-{datestring}.mat")
         return dirname, filename, dt
 
     # we've got all the channels
@@ -135,18 +132,18 @@ class Saver:
         dirname, filename, dt = self.filename(new_value)
 
         if os.path.isfile(filename):
-            print('File %s already exists' % filename)
+            print(f"File {filename} already exists")
         else:
             # Convert the results into complex numbers
             result = self.results.reshape(self.pv_count // 2, 2, -1)
             result = result[:, 0] + 1j * result[:, 1]
 
             if not os.path.isdir(dirname):
-                print('Creating', dirname)
+                print("Creating", dirname)
                 os.mkdir(dirname)
-            print('Writing pm', filename)
-            data = dict(pm=result, time=new_value.timestamp)
-            scipy.io.savemat(filename, data, appendmat=True, oned_as='column')
+            print("Writing pm", filename)
+            data = {"pm": result, "time": new_value.timestamp}
+            scipy.io.savemat(filename, data, appendmat=True, oned_as="column")
 
             # Notify the logger
             self.on_event(dt, result, filename)
@@ -158,9 +155,9 @@ class Saver:
 # The following message is written to e-log on successful writing of a group
 # of postmortem files.
 PM_MESSAGE = (
-    'Saved in %(filename)s\n'
-    + 'Run the following command in a terminal window to view it:\n'
-    + '%(where)s/rf_pm_frontend.py %(filename)s'
+    "Saved in %(filename)s\n"
+    + "Run the following command in a terminal window to view it:\n"
+    + "%(where)s/rf_pm_frontend.py %(filename)s"
 )
 
 
@@ -172,16 +169,16 @@ class Logger:
         self.timer = None
 
     def reset(self):
-        self.pms = dict([(id, numpy.zeros([4, 2000])) for id in self.valid_ids])
-        self.seen = dict([(id, False) for id in self.valid_ids])
-        self.filenames = dict([(id, '') for id in self.valid_ids])
+        self.pms = {id: numpy.zeros([4, 2000]) for id in self.valid_ids}
+        self.seen = dict.fromkeys(self.valid_ids, False)
+        self.filenames = dict.fromkeys(self.valid_ids, "")
 
     def log_event(self, id):
         return lambda *args: self.process_one_event(id, *args)
 
     def process_one_event(self, id, time, result, filename):
         if self.seen[id]:
-            print('PM %d already seen!' % id)
+            print(f"PM {id} already seen!")
         else:
             self.time = time
             self.pms[id] = result
@@ -207,37 +204,35 @@ class Logger:
         buf = plotserv.display_waveforms(
             self.time, *[self.pms[id] for id in self.valid_ids]
         )
-        message = 'RF Postmortem.  Files written to:\n%s' % '\n'.join(
-            [self.filenames[id] for id in self.valid_ids]
-        )
-        elog.entry('RF Postmortem', message, buf, DEBUG)
-        print('Logged RF Postmortem')
+        files = "\n".join(self.filenames[id] for id in self.valid_ids)
+        message = f"RF Postmortem.  Files written to:\n{files}"
+        elog.entry("RF Postmortem", message, buf, DEBUG)
+        print("Logged RF Postmortem")
 
 
-# epics channels for RF
-pv_lists = [
-    ['%s:PM:WF%c%c' % (rfpm, button, iq) for button in 'ABCD' for iq in 'IQ']
-    for rfpm in RFPMS
-]
+def start_server():
+    # epics channels for RF
+    pv_lists = [
+        [f"{rfpm}:PM:WF{button}{iq}" for button in "ABCD" for iq in "IQ"]
+        for rfpm in RFPMS
+    ]
 
+    # save task
+    logger = Logger(VALID_PMS)
+    savers = [  # noqa: F841
+        Saver(id, pv_list, 2**14, logger.log_event(id))
+        for id, pv_list in zip(VALID_PMS, pv_lists, strict=True)
+    ]
 
-# save task
-logger = Logger(VALID_PMS)
-savers = [
-    Saver(id, pv_list, 2**14, logger.log_event(id))
-    for id, pv_list in zip(VALID_PMS, pv_lists)
-]
+    # A couple of identification PVs
+    builder.SetDeviceName("CS-DI-IOC-07")
+    builder.stringIn("WHOAMI", initial_value="RF Postmortem Server")
+    builder.stringIn("HOSTNAME", initial_value=os.uname()[1])
 
+    builder.LoadDatabase()
 
-# A couple of identification PVs
-builder.SetDeviceName('CS-DI-IOC-07')
-builder.stringIn('WHOAMI', initial_value='RF Postmortem Server')
-builder.stringIn('HOSTNAME', initial_value=os.uname()[1])
+    from softioc import softioc
 
-builder.LoadDatabase()
+    softioc.iocInit()
 
-from softioc import softioc
-
-softioc.iocInit()
-
-softioc.interactive_ioc(globals())
+    softioc.interactive_ioc(globals())
