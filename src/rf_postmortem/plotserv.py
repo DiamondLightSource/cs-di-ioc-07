@@ -7,14 +7,15 @@ import io
 import matplotlib.pyplot as plt
 import numpy as np
 
-from . import elog
-from .config import COLOURS, VALID_PMS
-
-VALID_COLOURS = [colour for n, colour in enumerate(COLOURS) if n + 1 in VALID_PMS]
+from . import config, elog
 
 
 def display_waveforms(time, *pms):
-    assert len(pms) == len(VALID_COLOURS)
+    valid_colours = [
+        colour for n, colour in enumerate(config.COLOURS) if n + 1 in config.VALID_PMS
+    ]
+
+    assert len(pms) == len(valid_colours)
 
     plt.clf()
     # Plotting phase and magnitude plots
@@ -27,12 +28,12 @@ def display_waveforms(time, *pms):
 
     plots = [
         (pm, colour)
-        for pm, colour in reversed(list(zip(pms, VALID_COLOURS, strict=True)))
+        for pm, colour in reversed(list(zip(pms, valid_colours, strict=True)))
         if np.all(~np.isnan(pm))
     ]
     labels = [
         f"{n}: {colour}"
-        for n, pm, colour in zip(VALID_PMS, pms, VALID_COLOURS, strict=True)
+        for n, pm, colour in zip(config.VALID_PMS, pms, valid_colours, strict=True)
         if np.all(~np.isnan(pm))
     ]
 
@@ -81,7 +82,7 @@ if __name__ == "__main__":
     m1 = loadmat(file1)
     m2 = loadmat(file2)
     mm = [m1["pm"], m2["pm"], np.ones([4, 2000])]
-    buf = display_waveforms(time(), *[mm[n - 1] for n in VALID_PMS])
+    buf = display_waveforms(time(), *[mm[n - 1] for n in config.VALID_PMS])
 
     # post to elog
     elog.entry("RF Postmortem", "RF Postmortem", buf, True)

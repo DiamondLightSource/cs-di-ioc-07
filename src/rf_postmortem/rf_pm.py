@@ -1,7 +1,7 @@
 # This is the postmortem back end for the RF(and BPMs)
 #
 # The program waits for a reponse on all the monitored channels, then it
-# checks the time stamps are all the smae. If not it will continue waiting
+# checks the time stamps are all the same. If not it will continue waiting
 # checking the timestamps each time a channel is updated. Once all timestamps
 # agree the data is written to a mat file (not yet it isn't). The program then
 # waits for 5 sec before looking again.  this should work for both the BPM and
@@ -32,10 +32,7 @@ import scipy.io
 from cothread import catools
 from softioc import builder
 
-from . import elog, plotserv
-from .config import DEBUG, PMDIR, VALID_PMS
-
-RFPMS = [f"SR-RF-PM-{id:02d}" for id in VALID_PMS]
+from . import config, elog, plotserv
 
 FNAME = "rf_postmortem"
 
@@ -122,7 +119,7 @@ class Saver:
         # Computes the filename from the timestamp in UTC format in seconds.
         dt = datetime.datetime.fromtimestamp(new_value.timestamp, datetime.UTC)
         dirname = f"{dt.year:04d}-{dt.month:02d}"
-        dirname = os.path.join(PMDIR, dirname)
+        dirname = os.path.join(config.PMDIR, dirname)
         datestring = dt.replace(microsecond=0).isoformat()
         filename = os.path.join(dirname, f"{FNAME}-{self.id:02d}-{datestring}.mat")
         return dirname, filename, dt
@@ -206,22 +203,23 @@ class Logger:
         )
         files = "\n".join(self.filenames[id] for id in self.valid_ids)
         message = f"RF Postmortem.  Files written to:\n{files}"
-        elog.entry("RF Postmortem", message, buf, DEBUG)
+        elog.entry("RF Postmortem", message, buf, config.DEBUG)
         print("Logged RF Postmortem")
 
 
 def start_server():
+    rfpms = [f"SR-RF-PM-{id:02d}" for id in config.VALID_PMS]
     # epics channels for RF
     pv_lists = [
         [f"{rfpm}:PM:WF{button}{iq}" for button in "ABCD" for iq in "IQ"]
-        for rfpm in RFPMS
+        for rfpm in rfpms
     ]
 
     # save task
-    logger = Logger(VALID_PMS)
+    logger = Logger(config.VALID_PMS)
     savers = [  # noqa: F841
         Saver(id, pv_list, 2**14, logger.log_event(id))
-        for id, pv_list in zip(VALID_PMS, pv_lists, strict=True)
+        for id, pv_list in zip(config.VALID_PMS, pv_lists, strict=True)
     ]
 
     # A couple of identification PVs

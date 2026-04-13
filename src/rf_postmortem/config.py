@@ -1,18 +1,20 @@
 # Simple PM configuration.  Everything read from configuration file normally
-# found in /home/ops/diagnostics/concentrator/, but read from the local
+# found in /home/ops/diagnostics/config/, but read from the local
 # directory in debug mode.
 
 import os
 import sys
 
-if "-D" in sys.argv:
+if "-d" in sys.argv:
     CONFIG_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
 else:
-    CONFIG_DIR = "/home/ops/diagnostics/concentrator"
+    CONFIG_DIR = "/home/ops/diagnostics/config"
 CONFIG_FILE = os.path.join(CONFIG_DIR, "CS-DI-IOC-07.config")
 
-config_dir = {}
-exec(open(CONFIG_FILE).read(), {}, config_dir)
 
-__all__ = list(config_dir.keys())
-globals().update(config_dir)
+def load(path: str = CONFIG_FILE) -> None:
+    config_dir = {}
+    exec(open(path).read(), {}, config_dir)
+    globals().update(config_dir)
+    global __all__
+    __all__ = list(config_dir.keys())
