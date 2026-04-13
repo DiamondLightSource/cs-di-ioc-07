@@ -3,7 +3,7 @@ requires = ["setuptools>=64", "setuptools_scm[toml]>=8"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "CS-DI-IOC-07"
+name = "cs-di-ioc-07"
 classifiers = [
     "Development Status :: 3 - Alpha",
     "License :: OSI Approved :: Apache Software License",
@@ -36,7 +36,10 @@ dev = [
 ]
 
 [project.scripts]
-CS-DI-IOC-07 = "rf_postmortem.__main__:main"
+cs-di-ioc-07 = "rf_postmortem.__main__:main"
+
+[project.urls]
+GitHub = "https://github.com/DiamondLightSource/cs-di-ioc-07"
 
 [[project.authors]] # Further authors may be added by duplicating this section
 email = "michael.abbott@diamond.ac.uk"
@@ -99,7 +102,7 @@ commands = [
     [
         "pyright",
         "--pythonpath",
-        ".venv/bin/python",
+        "{env:VIRTUAL_ENV}/bin/python",
         "src",
         "tests",
         { replace = "posargs", default = [

@@ -1,8 +1,8 @@
 apiVersion: backstage.io/v1alpha1
 kind: Component
 metadata:
-  name: CS-DI-IOC-07
-  title: CS-DI-IOC-07
+  name: cs-di-ioc-07
+  title: cs-di-ioc-07
   description: RF and BPM Postmortem Backend
 spec:
   type: service
