@@ -17,6 +17,7 @@ dependencies = [
     "cothread",
     "matplotlib",
     "scipy",
+    "stdio-socket>=1.4.0",
 ] # Add project dependencies here
 dynamic = ["version"]
 license.file = "LICENSE"
