@@ -63,6 +63,12 @@
             "source": "devcontainer-shared-cache",
             "target": "/cache",
             "type": "volume"
+        },
+        // Mount postmortems for development
+        {
+            "source": "/dls/ops-data/Postmortems",
+            "target": "/dls/ops-data/Postmortems",
+            "type": "bind"
         }
     ],
     // Mount the parent as /workspaces so we can pip install peers as editable

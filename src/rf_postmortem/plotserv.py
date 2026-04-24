@@ -18,6 +18,13 @@ def display_waveforms(time, *pms):
     assert len(pms) == len(valid_colours)
 
     plt.clf()
+    plt.gcf().set_facecolor("0.75")  # Sets shade of grey of of top banner
+    plt.rcParams["axes.titlepad"] = 3
+    plt.rcParams["axes.labelpad"] = 0
+    plt.rcParams["lines.linewidth"] = 1.0
+    plt.rcParams["xtick.direction"] = "in"
+    plt.rcParams["ytick.direction"] = "in"
+    plt.rcParams["axes.xmargin"] = 0
     # Plotting phase and magnitude plots
     a = plt.axes((0, 0, 1, 0.93), facecolor="grey")
     plt.setp(a, xticks=[], yticks=[])
@@ -51,7 +58,7 @@ def display_waveforms(time, *pms):
         for pm, colour in plots:
             plt.plot(timebase, 180 / np.pi * np.unwrap(np.angle(pm[n])), colour)
         plt.axvline(0, color="red")
-
+        plt.locator_params(axis="y", nbins=10)
         plt.axes((0.6, 0.08 + 0.3 * n, 0.35, 0.2))
         plt.title(f"{channel} Magnitude")
         plt.xlabel("Turns")
@@ -59,6 +66,7 @@ def display_waveforms(time, *pms):
         for pm, colour in plots:
             plt.plot(timebase, abs(pm[n]), colour)
         plt.axvline(0, color="red")
+        plt.locator_params(axis="y", nbins=10)
 
     # print png to string buffer
     buf = io.BytesIO()
@@ -68,21 +76,28 @@ def display_waveforms(time, *pms):
 
 if __name__ == "__main__":
     file1 = (
-        "/dls/ops-data/Postmortems/RF_Postmortems/2010-04/"
-        "rf_postmortem-01-2010-04-14T06:45:08.mat"
+        "/dls/ops-data/Postmortems/RF_Postmortems/2026-04/"
+        "rf_postmortem-01-2026-04-24T13:28:19.mat"
     )
     file2 = (
-        "/dls/ops-data/Postmortems/RF_Postmortems/2010-04/"
-        "rf_postmortem-02-2010-04-14T06:45:08.mat"
+        "/dls/ops-data/Postmortems/RF_Postmortems/2026-04/"
+        "rf_postmortem-03-2026-04-24T13:28:19.mat"
     )
     from datetime import time
 
     from scipy.io import loadmat
 
+    config.load("CS-DI-IOC-07.config")
+
     m1 = loadmat(file1)
     m2 = loadmat(file2)
     mm = [m1["pm"], m2["pm"], np.ones([4, 2000])]
-    buf = display_waveforms(time(), *[mm[n - 1] for n in config.VALID_PMS])
+    buf = display_waveforms(time(), *[mm[n] for n in range(2)])
+
+    # Write to .png file for review
+    if buf:
+        with open("buf.png", "wb") as f:
+            f.write(buf)
 
     # post to elog
     elog.entry("RF Postmortem", "RF Postmortem", buf, True)
